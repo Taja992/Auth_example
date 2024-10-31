@@ -1,12 +1,15 @@
 using DataAccess;
 using DataAccess.Entities;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Service;
 using Service.Blog;
 using Service.Draft;
 using Service.Repositories;
+using Service.Security;
 
 namespace Api;
 
@@ -38,6 +41,28 @@ public class Program
         #endregion
 
         #region Security
+        
+        builder
+            .Services.AddIdentityApiEndpoints<User>()
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<AppDbContext>();
+        builder.Services.AddSingleton<IPasswordHasher<User>, Argon2idPasswordHasher<User>>();
+        
+        var options = builder.Configuration.GetSection(nameof(AppOptions)).Get<AppOptions>()!;
+        builder
+            .Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultSignInScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(o =>
+            {
+                o.TokenValidationParameters = JwtTokenClaimService.ValidationParameters(options);
+            });
+        builder.Services.AddScoped<ITokenClaimsService, JwtTokenClaimService>();
+        
         #endregion
 
         #region Services
